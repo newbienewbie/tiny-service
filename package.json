@@ -1,0 +1,16 @@
+{
+  "name": "tiny-service",
+  "version": "0.0.1",
+  "description": "a tiny api library",
+  "main": "dist/index.js",
+  "scripts": {
+    "babel": "babel index.js --out-dir dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "tiny api"
+  ],
+  "author": "itminus@hotmail.com",
+  "license": "ISC",
+  "dependencies": {}
+}
