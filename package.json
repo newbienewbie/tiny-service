@@ -1,6 +1,6 @@
 {
   "name": "tiny-service",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "description": "a tiny api library",
   "main": "dist/index.js",
   "scripts": {
