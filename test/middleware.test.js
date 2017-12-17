@@ -125,7 +125,7 @@ describe('test middleware.js',function(){
     const middleware=Middleware(serviceEnv.funcs);
     let middlewareEnv=funcBeenCalledEnv(middleware);
     const middlewareFlags=middlewareEnv.flags;
-    const {create,remove,update,list,recent}=middlewareEnv.funcs;
+    const {create,remove,update,findById,list,recent}=middlewareEnv.funcs;
 
     it('test #create()',function(){
         const record={};
@@ -186,8 +186,26 @@ describe('test middleware.js',function(){
             return update(req,res,next) ;       
         })
         .then(_=>{
-            assert.equal(middlewareFlags['update'],3,'middleware.update理应恰好调用3次' ) ;
+            assert.equal(middlewareFlags['update'],3,'middleware.update()理应恰好调用3次' ) ;
             assert.equal(serviceFlags['update'],2,'下伏service.update()理应恰好调用2次');
+        });
+    });
+
+    it('test #findById()',function(){
+        // with no id provided
+        req.body={context:null};
+        return findById(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['findById'],1,'middleware.findById()理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['findById'],0,'下伏service.findById()理应未发生调用');
+        })
+        // when given a body.id 
+        .then(_=>{
+            req.body={id:'faked',context:null}; // with id privided here
+            return findById(req,res,next);        
+        })
+        .then(_=>{
+            assert.equal(middlewareFlags['findById'],2,'middleware.findById()理应恰好调用2次' ) ;
+            assert.equal(serviceFlags['findById'],1,'下伏service.findById()理应恰好调用1次');
         });
     });
 
