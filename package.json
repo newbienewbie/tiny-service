@@ -2,9 +2,8 @@
   "name": "tiny-service",
   "version": "0.3.0",
   "description": "a tiny api library",
-  "main": "dist/index.js",
+  "main": "index.js",
   "scripts": {
-    "babel": "babel index.js --out-dir dist",
     "test": "mocha test --recursive"
   },
   "keywords": [
