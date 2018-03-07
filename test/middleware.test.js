@@ -1,5 +1,5 @@
 const assert=require('assert');
-const Middleware=require('../lib/middleware');
+const {Middleware,CategoryMiddleware}=require('../lib/middleware');
 
 
 
@@ -50,6 +50,43 @@ const service={
     },
 };
 
+/**
+ * fake category service
+ */
+const categoryService={
+    getModel:function(){ 
+        return Promise.resolve({});
+    },
+    create:function(record){
+        return Promise.resolve(record);
+    },
+    remove:function(id){
+        return Promise.resolve({id,});
+    },
+    update:function(id,record){
+        return Promise.resolve(Object.assign({},record,{id}));
+    },
+    findById:function(id){
+        return Promise.resolve({id,});
+    },
+    list:function(page=1,size=10,condition={}){
+        return Promise.resolve([]);
+    },
+    recent:function(page=1,size=10,condition={}){
+        return Promise.resolve([]);
+    },
+    listAll:function(condition){
+        return Promise.resolve([]);
+    },
+    getCategorySubnodeIdList:function(pid,condition={}){
+        return Promise.resolve([]);
+    },
+    tree:function(condition={}){
+        return Promise.resolve();
+    }
+};
+
+
 
 /**
  * fake res
@@ -74,43 +111,47 @@ const next=()=>{};
 
 
 describe('test #funcBeenCalledEnv()',function(){
-it('test with fake service ( promise api)',function(){
-    const {flags,funcs}=funcBeenCalledEnv(service);
-    const promises=Object.keys(funcs).map(k=>{
-        const f=funcs[k];
-        return f().then(_=>{
-            const count=flags[k];
-            assert.ok(count,1,`function ${k} expected to be called just once`);
-        })
-    });
-    return Promise.all(promises);
-});
-
-describe('test with fake res (sync api)',function(){
-    it('test all api',function () {
-        const {flags,funcs}=funcBeenCalledEnv(res);
-        const list=Object.keys(funcs).map(k=>{
-            const f=funcs[k];
-            const result=f();
-            const count=flags[k];
-            assert.ok(count,1,`function ${k} expected to be called just once`);
+    describe('test with fake service ( promise api)',function(){
+        [service,categoryService].forEach((s,idx)=>{
+            it(`test fake service ${idx}`,function(){
+                const {flags,funcs}=funcBeenCalledEnv(s);
+                const promises=Object.keys(funcs).map(k=>{
+                    const f=funcs[k];
+                    return f().then(_=>{
+                        const count=flags[k];
+                        assert.ok(count,1,`function ${k} expected to be called just once`);
+                    })
+                });
+                return Promise.all(promises);
+            });
         });
     });
-    it('test fake res.json()',function () {
-        const {flags,funcs}=funcBeenCalledEnv(res);
-        const f=funcs['json'];
-        const obj={id:1,foo:'bar'}
-        const result=f(obj);
-        const count=flags['json'];
-        assert.ok(count,1,`function res.json() expected to be called just once`);
-        assert.deepEqual(JSON.parse(result),obj,'should deep equal');
+
+    describe('test with fake res (sync api)',function(){
+        it('test all api',function () {
+            const {flags,funcs}=funcBeenCalledEnv(res);
+            const list=Object.keys(funcs).map(k=>{
+                const f=funcs[k];
+                const result=f();
+                const count=flags[k];
+                assert.ok(count,1,`function ${k} expected to be called just once`);
+            });
+        });
+        it('test fake res.json()',function () {
+            const {flags,funcs}=funcBeenCalledEnv(res);
+            const f=funcs['json'];
+            const obj={id:1,foo:'bar'}
+            const result=f(obj);
+            const count=flags['json'];
+            assert.ok(count,1,`function res.json() expected to be called just once`);
+            assert.deepEqual(JSON.parse(result),obj,'should deep equal');
+        });
+
     });
-
-});
 });
 
 
-describe('test middleware.js',function(){
+describe('test middleware',function(){
 
     let serviceEnv=funcBeenCalledEnv(service);
     const serviceFlags=serviceEnv.flags;
@@ -224,4 +265,135 @@ describe('test middleware.js',function(){
         });
     });
 
+});
+
+describe('test category-middleware',function(){
+
+    let serviceEnv=funcBeenCalledEnv(categoryService);
+    const serviceFlags=serviceEnv.flags;
+    const serviceFunc=serviceEnv.funcs;
+    const serviceCreate=serviceFunc.create;
+    const serviceRemove=serviceFunc.remove;
+    const serviceUpdate=serviceFunc.update;
+    const serviceFindById=serviceFunc.findById;
+    const serviceList=serviceFunc.list;
+    const serviceRecent=serviceFunc.recent;
+    const serviceListOfScope=serviceFunc.recent;
+    const serviceTreeOfScope=serviceFunc.recent;
+
+    const middleware=CategoryMiddleware(serviceEnv.funcs);
+    let middlewareEnv=funcBeenCalledEnv(middleware);
+    const middlewareFlags=middlewareEnv.flags;
+    const {create,remove,update,findById,list,recent,listOfScope,treeOfScope}=middlewareEnv.funcs;
+
+    it('test #create()',function(){
+        const record={};
+        req.body={record,context:null};
+        return create(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['create'],1,'理应恰好调用一次' ) ;
+            assert.equal(serviceFlags['create'],1,'理应恰好调用1次');
+        }).then(_=>{
+            return create(req,res,next)
+        }).then(_=>{
+            assert.equal(middlewareFlags['create'],2,'理应恰好调用了2次' ) ;
+            assert.equal(serviceFlags['create'],2,'理应恰好调用2次');
+        });
+    });
+
+    it('test #remove()',function(){
+
+        // when no id
+        req.body={context:null};
+        return remove(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['remove'],1,'middleware.remove()理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['remove'],0,'下伏service.remove()理应未发生调用');
+        })
+        // when given a body.id 
+        .then(_=>{
+            const id='fake';
+            req.body={id,context:null};
+            return remove(req,res,next)
+        })
+        .then(_=>{
+            assert.equal(middlewareFlags['remove'],2,'理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['remove'],1,'理应恰好调用1次');
+        });
+    });
+
+    it('test #update()',function(){
+        // when no id
+        const record={ }; // with no id provided
+        req.body={record,context:null};
+        return update(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['update'],1,'middleware.update()理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['update'],0,'下伏service.update()理应未发生调用');
+        })
+        // when given a body.id 
+        .then(_=>{
+            const record={}; // with no id provided
+            req.body={id:'faked',record,context:null}; // with id privided here
+            return update(req,res,next);        
+        })
+        .then(_=>{
+            assert.equal(middlewareFlags['update'],2,'middleware.update理应恰好调用2次' ) ;
+            assert.equal(serviceFlags['update'],1,'下伏service.update()理应恰好调用1次');
+        })
+        // when given body.record.id 
+        .then(_=>{
+            const record={ id:'fake', };
+            req.body={record,context:null};
+            return update(req,res,next) ;       
+        })
+        .then(_=>{
+            assert.equal(middlewareFlags['update'],3,'middleware.update()理应恰好调用3次' ) ;
+            assert.equal(serviceFlags['update'],2,'下伏service.update()理应恰好调用2次');
+        });
+    });
+
+    it('test #findById()',function(){
+        // with no id provided
+        req.body={context:null};
+        return findById(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['findById'],1,'middleware.findById()理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['findById'],0,'下伏service.findById()理应未发生调用');
+        })
+        // when given a body.id 
+        .then(_=>{
+            req.body={id:'faked',context:null}; // with id privided here
+            return findById(req,res,next);        
+        })
+        .then(_=>{
+            assert.equal(middlewareFlags['findById'],2,'middleware.findById()理应恰好调用2次' ) ;
+            assert.equal(serviceFlags['findById'],1,'下伏service.findById()理应恰好调用1次');
+        });
+    });
+
+    it('test #list()',function(){
+        req.body={};
+        return list(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['list'],1,'理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['list'],1,'理应恰好调用1次');
+        });
+    });
+    it('test #recent()',function(){
+        req.body={};
+        return recent(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['recent'],1,'理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['recent'],1,'理应恰好调用1次');
+        });
+    });
+    it('test #listOfScope()',function(){
+        req.params={ scope:'test-list-of-scope' };
+        return listOfScope(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['listOfScope'],1,'理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['listAll'],1,'理应恰好调用1次');
+        });
+    });
+    it('test #treeOfScope()',function(){
+        req.params={ scope:'test-tree-of-scope' };
+        return treeOfScope(req,res,next).then(_=>{
+            assert.equal(middlewareFlags['treeOfScope'],1,'理应恰好调用1次' ) ;
+            assert.equal(serviceFlags['tree'],1,'理应恰好调用1次');
+        });
+    })
 });
